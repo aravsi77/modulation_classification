@@ -156,33 +156,31 @@ def linear_activation_backward(dA, cache, activation):
 
 def L_model_backward(AL, Y, caches):
     #implement a linear backward propagation for linear relu and linear sigmoid
-    grads = {} #store the grad value
-    L = AL.shape[1]
-    Y = Y.reshape(AL.shape)
-
-    #initialize he backprop
-    dAL = -(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
-
-    #Last layer
+    grads = {}
+    L = len(caches) # the number of layers
+    m = AL.shape[1]
+    Y = Y.reshape(AL.shape) # after this line, Y is the same shape as AL
+    
+    # Initializing the backpropagation
+    dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))    
+    # Lth layer (SIGMOID -> LINEAR) gradients. Inputs: "AL, Y, caches". Outputs: "grads["dAL"], grads["dWL"], grads["dbL"]
     current_cache = caches[L-1]
-    grads["dA"+str(L)],grads["dW"+str(L)],grads["db"+str(L)] = linear_activation_backward(dAL, 
-                                                                                          current_cache, 
-                                                                                          activation = "sigmoid")
-    #iterate from L-1 layer to 1st layer
+    grads["dA"+str(L-1)],grads["dW"+str(L)],grads["db"+str(L)] = linear_activation_backward(dAL, current_cache, activation ="sigmoid")
+    
     for l in reversed(range(L-1)):
+        # lth layer: (RELU -> LINEAR) gradients.
         current_cache = caches[l]
-        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 2)], 
-                                                                    current_cache, 
-                                                                    activation = "relu")
-        grads["dA"+str(l+1)] = dA_prev_temp
-        grads["dW"+str(l+1)] = dW_temp
-        grads["db"+str(l+1)] = db_temp
+        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)], current_cache, activation = "relu")
+        grads["dA" + str(l)] = dA_prev_temp
+        grads["dW" + str(l + 1)] = dW_temp
+        grads["db" + str(l + 1)] = db_temp
 
     return grads
 
+
+
 def update_parameters(parameters, grads, learning_rate):
     #update the parameters using gradient descent
-
     L = len(parameters) // 2
     #update rule for each parameter
     for l in range(L):
@@ -190,7 +188,60 @@ def update_parameters(parameters, grads, learning_rate):
         parameters["b" + str(l+1)] = parameters["b" + str(l+1)] - learning_rate * grads["db" + str(l+1)]
     
     return parameters
+
+
+def deep_network_model(X,Y,layer_dims,learning_rate=0.01,num_iter=2500,print_cost=False):
+    #implementation of multiple layer neural network
+
+    np.random.seed(1)
+    costs = []
+
+    parameters = initialize_parameters_deep(layer_dims)
+
+    #loop over to calculate gradient descent
+    for i in range(0, num_iter):
+        #forward propagation
+        AL, caches = L_model_forward(X,parameters)
+
+        #calculate the cost
+        cost = compute_cost(AL,Y)
+
+        #Backward Propagation
+        grads = L_model_backward(AL,Y,caches)
+
+        #update parameters
+        parameters = update_parameters(parameters,grads,learning_rate)
+
+        #print cost every 100th examples
+        if print_cost and i % 100 == 0:
+            print ("Cost after iteration %i: %f" %(i, cost))
+        if print_cost and i % 100 == 0:
+            costs.append(cost)
     
+    #plot the cost
+    plt.plot(np.squeeze(costs))
+    plt.ylabel('cost')
+    plt.xlabel('iterations (per hundreds)')
+    plt.title("Learning rate =" + str(learning_rate))
+    plt.show()
 
+    return parameters
 
+# helper function to compute the classification error rate
+def CER(predictions, labels):
+    return (np.sum(predictions != labels) / np.size(predictions))
+
+#function to predict output from input and neural network parameters
+def make_prediction(X,params):
+    m = X.shape[1]
+    p = np.zeros((1,m))
+    A2,cache = L_model_forward(X,params)
+    
+    for i in range(0,A2.shape[1]):
+        if A2[0,i] > 0.5:
+            p[0,i] = 1
+        else:
+            p[0,i] = 0
+    
+    return p
 
